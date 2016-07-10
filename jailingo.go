@@ -43,6 +43,7 @@ func (i *stringArray) Set(value string) error {
 }
 
 func Copy(dst, src string) error {
+	log.Info("Copy ", src, " to ", dst)
 	in, err := os.Open(src)
 	if err != nil {
 		return err
