@@ -94,10 +94,13 @@ func MakeDev(major, minor int) int {
 
 func (app *JailingApp) mknod(path string, mode int, major int, minor int) error {
 	if _, err := os.Stat(filepath.Join(app.Root, path)); os.IsNotExist(err) {
+		log.Info("Creating new device: ", path)
 		err = syscall.Mknod(filepath.Join(app.Root, path), syscall.S_IFCHR|uint32(mode), MakeDev(major, minor))
 		if err != nil {
-			return err
+			return fmt.Errorf("Cannot make device: ", path, err)
 		}
+	} else {
+		log.Info("Device exists: ", path)
 	}
 	return nil
 }
@@ -108,11 +111,9 @@ func (app *JailingApp) makeDevices() error {
 		log.Fatal("mkdir /dev/ ", err)
 	}
 	for _, device := range app.Devices {
-		if _, err := os.Stat(filepath.Join(app.Root, device.Path)); os.IsNotExist(err) {
-			log.Info("Creating new device: ", device)
-			app.mknod(device.Path, device.Mode, device.Major, device.Minor)
-		} else {
-			log.Info("Device exists: ", device)
+		err = app.mknod(device.Path, device.Mode, device.Major, device.Minor)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -154,13 +155,13 @@ func (app *JailingApp) MakeTempDirs() error {
 }
 
 func (app *JailingApp) Main() error {
-	err = os.MkdirAll(app.Root, 0755)
+	err := os.MkdirAll(app.Root, 0755)
 	if err != nil {
 		return err
 	}
 
 	// Step in to root directory
-	err := os.Chdir(app.Root)
+	err = os.Chdir(app.Root)
 	if err != nil {
 		return err
 	}
@@ -184,13 +185,14 @@ func (app *JailingApp) Main() error {
 		return err
 	}
 
+	// TODO make /dev as tmpfs. since some env provides root fs as 'nodev'
 	// TOOD mount bind
 	// TODO defer umount
 
 	// Do chroot
 	err = syscall.Chroot(app.Root)
 	if err != nil {
-		return err
+		return fmt.Errorf("Cannot chroot: ", app.Root, err)
 	}
 
 	// TODO drop_capabilities
@@ -199,7 +201,7 @@ func (app *JailingApp) Main() error {
 	cmd := exec.Command("/bin/sh")
 	err = cmd.Start()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("executing command: ", err)
 	}
 	err = cmd.Wait()
 	if err != nil {
