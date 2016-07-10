@@ -1,12 +1,15 @@
 all: jailingo
 
-jailingo:
+jailingo: jailingo.go
 	go build
-	setcap CAP_SYS_ADMIN+ep jailingo
-	setcap CAP_SYS_CHROOT+ep jailingo
+	sudo setcap CAP_SYS_ADMIN+ep jailingo
+	sudo setcap CAP_SYS_CHROOT+ep jailingo
 
 test:
 	go test
 
-.PHONY: all
+clean:
+	rm jailingo
+
+.PHONY: all clean
 
