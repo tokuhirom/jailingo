@@ -135,8 +135,23 @@ func (app *JailingApp) makeDevices() error {
 	return nil
 }
 
+func (app *JailingApp) createSymlink(target, link_name string) error {
+	dst := filepath.Join(app.Root, link_name)
+	if _, err := os.Stat(dst); os.IsNotExist(err) {
+		err := os.Symlink(target, dst)
+		if err != nil {
+			return fmt.Errorf("Cannot create symlink: %v => %v: %v",
+				target, dst, err)
+		}
+		return nil
+	} else {
+		log.Infof("%v already exists", dst)
+		return nil
+	}
+}
+
 func (app *JailingApp) createSymlinks() {
-	err := os.Symlink("../run/lock", filepath.Join(app.Root, "var/lock"))
+	err := app.createSymlink("../run/lock", filepath.Join(app.Root, "var/lock"))
 	if err != nil {
 		log.Fatal(err)
 	}
