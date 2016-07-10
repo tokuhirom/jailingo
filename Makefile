@@ -1,9 +1,8 @@
 all: jailingo
 
-jailingo: jailingo.go
+jailingo: jailingo.go core/app.go Makefile
 	go build
-	sudo setcap CAP_SYS_ADMIN+ep jailingo
-	sudo setcap CAP_SYS_CHROOT+ep jailingo
+	sudo setcap CAP_SYS_ADMIN,CAP_SYS_CHROOT,CAP_MKNOD+ep-i jailingo
 
 test:
 	go test
