@@ -154,13 +154,13 @@ func (app *JailingApp) MakeTempDirs() error {
 }
 
 func (app *JailingApp) Main() error {
-	// Step in to root directory
-	err := os.Chdir(app.Root)
+	err = os.MkdirAll(app.Root, 0755)
 	if err != nil {
 		return err
 	}
 
-	err = os.MkdirAll(app.Root, 0755)
+	// Step in to root directory
+	err := os.Chdir(app.Root)
 	if err != nil {
 		return err
 	}
