@@ -182,7 +182,7 @@ func (app *JailingApp) Main() {
 	// Do chroot
 	err = syscall.Chroot(app.Root)
 	if err != nil {
-		log.Fatal("Chroot ", err)
+		log.Fatal("Cannot chroot ", err)
 	}
 
 	// TODO drop_capabilities
