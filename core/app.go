@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"io"
 	"os"
@@ -69,22 +70,12 @@ func NewJailingApp(root string, binds []string) *JailingApp {
 }
 
 func (app *JailingApp) copyFiles() error {
-	// mkdir etc/
-	err := os.MkdirAll(filepath.Join(app.Root, "/etc/"), 0755)
-	if err != nil {
-		log.Fatal("mkdir /etc/ ", err)
-	}
-
-	// Copy files
 	for _, filename := range app.CopyFiles {
-		if _, err := os.Stat(filepath.Join("/", filename)); os.IsNotExist(err) {
-			log.Info("No file: ", filename)
-		} else {
-			log.Info("Copy file: ", filename)
-			err := Copy(filepath.Join(app.Root, filename), filepath.Join("/", filename))
-			if err != nil {
-				log.Fatal("Cannot copy file: ", filename, " ", err)
-			}
+		dst := filepath.Join(app.Root, filename)
+		src := filepath.Join("/", filename)
+		err := Copy(dst, src)
+		if err != nil {
+			return fmt.Errorf("Cannot copy %v to %v: %v", src, dst, err)
 		}
 	}
 	return nil
@@ -181,8 +172,17 @@ func (app *JailingApp) Main() error {
 	// make devices
 	app.makeDevices()
 
+	// mkdir /etc/
+	err = os.MkdirAll(filepath.Join(app.Root, "/etc/"), 0755)
+	if err != nil {
+		return err
+	}
+
 	// copy files
-	app.copyFiles()
+	err = app.copyFiles()
+	if err != nil {
+		return err
+	}
 
 	// TOOD mount bind
 	// TODO defer umount
@@ -190,7 +190,7 @@ func (app *JailingApp) Main() error {
 	// Do chroot
 	err = syscall.Chroot(app.Root)
 	if err != nil {
-		log.Fatal("Cannot chroot ", err)
+		return err
 	}
 
 	// TODO drop_capabilities
