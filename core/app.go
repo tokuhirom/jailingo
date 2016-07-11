@@ -21,10 +21,11 @@ func NewDevice(path string, mode, major, minor int) *Device {
 }
 
 type JailingApp struct {
-	Root     string
-	Bind     []string
-	TempDirs []string
-	Devices  []*Device
+	Root      string
+	Bind      []string
+	TempDirs  []string
+	Devices   []*Device
+	CopyFiles []string
 }
 
 func Copy(dst, src string) error {
@@ -58,10 +59,16 @@ func NewJailingApp(root string, binds []string) *JailingApp {
 			NewDevice("/dev/random", 0666, 1, 9),
 			NewDevice("/dev/urandom", 0666, 1, 9),
 		},
+		[]string{
+			"etc/group",
+			"etc/passwd",
+			"etc/resolv.conf",
+			"etc/hosts",
+		},
 	}
 }
 
-func (app *JailingApp) copyFiles(copy_files []string) error {
+func (app *JailingApp) copyFiles() error {
 	// mkdir etc/
 	err := os.MkdirAll(filepath.Join(app.Root, "/etc/"), 0755)
 	if err != nil {
@@ -69,7 +76,7 @@ func (app *JailingApp) copyFiles(copy_files []string) error {
 	}
 
 	// Copy files
-	for _, filename := range copy_files {
+	for _, filename := range app.CopyFiles {
 		if _, err := os.Stat(filepath.Join("/", filename)); os.IsNotExist(err) {
 			log.Info("No file: ", filename)
 		} else {
@@ -175,11 +182,7 @@ func (app *JailingApp) Main() error {
 	app.makeDevices()
 
 	// copy files
-	copy_files := []string{"etc/group",
-		"etc/passwd",
-		"etc/resolv.conf",
-		"etc/hosts"}
-	app.copyFiles(copy_files)
+	app.copyFiles()
 
 	// TOOD mount bind
 	// TODO defer umount
