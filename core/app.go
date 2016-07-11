@@ -140,29 +140,34 @@ func (app *JailingApp) createSymlinks() {
 	}
 }
 
-func (app *JailingApp) Main() {
+func (app *JailingApp) MakeTempDirs() error {
+	for _, tmpdir := range app.TempDirs {
+		path := filepath.Join(app.Root, tmpdir)
+		err := os.MkdirAll(path, 01777)
+		if err != nil {
+			return err
+		}
+		err = os.Chmod(path, 01777)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (app *JailingApp) Main() error {
 	// Step in to root directory
 	err := os.Chdir(app.Root)
 	if err != nil {
-		log.Fatal("Chdir ", err)
+		return err
 	}
 
 	err = os.MkdirAll(app.Root, 0755)
 	if err != nil {
-		log.Fatal("mkdirs ", err)
+		return err
 	}
 
-	for _, tmpdir := range app.TempDirs {
-		path := filepath.Join(app.Root, tmpdir)
-		err = os.MkdirAll(path, 01777)
-		if err != nil {
-			log.Fatal("mkdirs ", err)
-		}
-		err = os.Chmod(path, 01777)
-		if err != nil {
-			log.Fatal("chmod ", err)
-		}
-	}
+	app.MakeTempDirs()
 
 	app.createSymlinks()
 
@@ -177,6 +182,7 @@ func (app *JailingApp) Main() {
 	app.copyFiles(copy_files)
 
 	// TOOD mount bind
+	// TODO defer umount
 
 	// Do chroot
 	err = syscall.Chroot(app.Root)
@@ -196,4 +202,5 @@ func (app *JailingApp) Main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	return nil
 }

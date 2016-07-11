@@ -46,5 +46,8 @@ func main() {
 	log.SetLevel(level)
 
 	app := core.NewJailingApp(*root, binds)
-	app.Main()
+	err = app.Main()
+	if err != nil {
+		log.Fatal("Cannot run jailingo: ", err)
+	}
 }
