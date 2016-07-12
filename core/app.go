@@ -202,9 +202,20 @@ func (app *JailingApp) mountPoints() error {
 		if err != nil {
 			return err
 		}
+
+		_, err = os.Open(mount)
+		if err != nil {
+			return err
+		}
 	}
 	for _, mount := range app.RoBinds {
 		err := app.mount(mount, true)
+		if err != nil {
+			return err
+		}
+
+		// Open directories to keep mounting.
+		_, err = os.Open(mount)
 		if err != nil {
 			return err
 		}
@@ -212,17 +223,41 @@ func (app *JailingApp) mountPoints() error {
 	return nil
 }
 
-func (app *JailingApp) umountAll() error {
+func (app *JailingApp) Unmount(mount string) error {
+	target := filepath.Join(app.Root, mount)
+	if IsEmpty(target) {
+		log.Infof("%s is empty", target)
+		return nil
+	}
+
+	log.Infof("Unmounting %s", target)
+	err := syscall.Unmount(target, syscall.MNT_DETACH)
+	if err != nil {
+		/*
+
+			EINVAL target is not a mount point.
+
+			EINVAL umount2() was called with MNT_EXPIRE and either MNT_DETACH or
+					MNT_FORCE.
+
+			EINVAL (since Linux 2.6.34)
+					umount2() was called with an invalid flag value in flags.
+
+		*/
+		return fmt.Errorf("Cannout unmount %v: %v", target, err)
+	}
+	return nil
+}
+
+func (app *JailingApp) UnmountAll() error {
 	for _, mount := range app.Binds {
-		log.Infof("Unmounting %s", mount)
-		err := syscall.Unmount(mount, 0)
+		err := app.Unmount(mount)
 		if err != nil {
 			return err
 		}
 	}
 	for _, mount := range app.RoBinds {
-		log.Infof("Unmounting %s", mount)
-		err := syscall.Unmount(mount, 0)
+		err := app.Unmount(mount)
 		if err != nil {
 			return err
 		}
@@ -266,7 +301,6 @@ func (app *JailingApp) Main() error {
 	if err != nil {
 		return err
 	}
-	defer app.umountAll()
 
 	// Do chroot
 	err = syscall.Chroot(app.Root)

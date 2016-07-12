@@ -28,6 +28,7 @@ func main() {
 	var binds stringArray
 	flag.Var(&binds, "bind", "binds")
 	version := flag.Bool("version", false, "Show version and exit")
+	unmount := flag.Bool("unmount", false, "Do unmount and exit")
 	flag.Parse()
 
 	if *root == "" {
@@ -85,8 +86,15 @@ func main() {
 	}
 
 	app := core.NewJailingApp(*root, tmpdirs, copyfiles, binds, robinds, flag.Args())
-	err = app.Main()
-	if err != nil {
-		log.Fatal("Cannot run jailingo: ", err)
+	if *unmount {
+		err = app.UnmountAll()
+		if err != nil {
+			log.Fatal("Cannot unmount: ", err)
+		}
+	} else {
+		err = app.Main()
+		if err != nil {
+			log.Fatal("Cannot run jailingo: ", err)
+		}
 	}
 }
