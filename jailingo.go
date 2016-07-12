@@ -11,17 +11,6 @@ import (
 
 const VERSION = "0.0.1"
 
-type stringArray []string
-
-func (i *stringArray) String() string {
-	return "stringArray"
-}
-
-func (i *stringArray) Set(value string) error {
-	*i = append(*i, value)
-	return nil
-}
-
 func main() {
 	app := kingpin.New("jailingo", "A command-line chat application.")
 	levelString := app.Flag("log.level", "log level").Default("INFO").String()

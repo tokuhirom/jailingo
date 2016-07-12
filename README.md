@@ -1,3 +1,7 @@
+Synopsis
+
+    jailingo run -R --root /tmp/jail -- /usr/bin/ansible-playbook main.yml
+
 Dependencies
 
     Linux supports capability
