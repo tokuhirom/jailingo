@@ -23,10 +23,12 @@ func NewDevice(path string, mode, major, minor int) *Device {
 
 type JailingApp struct {
 	Root      string
-	Bind      []string
 	TempDirs  []string
 	Devices   []*Device
 	CopyFiles []string
+	Binds     []string
+	RoBinds   []string
+	Args      []string
 }
 
 func Copy(dst, src string) error {
@@ -49,23 +51,20 @@ func Copy(dst, src string) error {
 	return cerr
 }
 
-func NewJailingApp(root string, binds []string) *JailingApp {
+func NewJailingApp(root string, tmpdirs []string, copyfiles []string, binds []string, robinds []string, args []string) *JailingApp {
 	return &JailingApp{
 		root,
-		binds,
-		[]string{"tmp", "run/lock", "var/tmp"},
+		tmpdirs,
 		[]*Device{
 			NewDevice("/dev/null", 0666, 1, 3),
 			NewDevice("/dev/zero", 0666, 1, 5),
 			NewDevice("/dev/random", 0666, 1, 9),
 			NewDevice("/dev/urandom", 0666, 1, 9),
 		},
-		[]string{
-			"etc/group",
-			"etc/passwd",
-			"etc/resolv.conf",
-			"etc/hosts",
-		},
+		copyfiles,
+		binds,
+		robinds,
+		args,
 	}
 }
 
@@ -92,7 +91,7 @@ func MakeDev(major, minor int) int {
 	return major*256 + minor
 }
 
-func (app *JailingApp) mknod(path string, mode int, major int, minor int) error {
+func (app *JailingApp) mknod(path string, mode, major, minor int) error {
 	if _, err := os.Stat(filepath.Join(app.Root, path)); os.IsNotExist(err) {
 		log.Info("Creating new device: ", path)
 		err = syscall.Mknod(filepath.Join(app.Root, path), syscall.S_IFCHR|uint32(mode), MakeDev(major, minor))
@@ -154,6 +153,83 @@ func (app *JailingApp) MakeTempDirs() error {
 	return nil
 }
 
+func IsEmpty(name string) bool {
+	f, err := os.Open(name)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	_, err = f.Readdirnames(1) // Or f.Readdir(1)
+	if err == io.EOF {
+		return true
+	}
+	return false
+}
+
+func (app *JailingApp) mount(point string, readonly bool) error {
+	dest := filepath.Join(app.Root, point)
+
+	err := os.MkdirAll(dest, 0755)
+	if err != nil {
+		return err
+	}
+
+	if IsEmpty(dest) {
+		log.Infof("Mounting %v(readonly: %v)", point, readonly)
+		// sudo strace mount --bind /bin /tmp/jail/bin/
+		// mount("/usr/bin", "/tmp/jail/bin", 0x7fc44d050240, MS_MGC_VAL|MS_BIND, NULL) = 0
+		// MS_MGC_VAL is required by linux kernel 2.4-
+		err = syscall.Mount(point, dest, "bind", syscall.MS_MGC_VAL|syscall.MS_BIND, "")
+		if err != nil {
+			return fmt.Errorf("Cannot mount(%v): %v", point, err)
+		}
+
+		err = syscall.Mount(point, dest, "", syscall.MS_MGC_VAL|syscall.MS_BIND|syscall.MS_RDONLY|syscall.MS_REMOUNT, "")
+		if err != nil {
+			return fmt.Errorf("Cannot mount(%v): %v", point, err)
+		}
+	} else {
+		log.Infof("%v is mounted(readonly: %v)", point, readonly)
+	}
+
+	return nil
+}
+
+func (app *JailingApp) mountPoints() error {
+	for _, mount := range app.Binds {
+		err := app.mount(mount, false)
+		if err != nil {
+			return err
+		}
+	}
+	for _, mount := range app.RoBinds {
+		err := app.mount(mount, true)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (app *JailingApp) umountAll() error {
+	for _, mount := range app.Binds {
+		log.Infof("Unmounting %s", mount)
+		err := syscall.Unmount(mount, 0)
+		if err != nil {
+			return err
+		}
+	}
+	for _, mount := range app.RoBinds {
+		log.Infof("Unmounting %s", mount)
+		err := syscall.Unmount(mount, 0)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (app *JailingApp) Main() error {
 	err := os.MkdirAll(app.Root, 0755)
 	if err != nil {
@@ -185,9 +261,12 @@ func (app *JailingApp) Main() error {
 		return err
 	}
 
-	// TODO make /dev as tmpfs. since some env provides root fs as 'nodev'
-	// TOOD mount bind
-	// TODO defer umount
+	// TODO make /dev as devtmpfs. since some env provides root fs as 'nodev'
+	err = app.mountPoints()
+	if err != nil {
+		return err
+	}
+	defer app.umountAll()
 
 	// Do chroot
 	err = syscall.Chroot(app.Root)
@@ -195,17 +274,19 @@ func (app *JailingApp) Main() error {
 		return fmt.Errorf("Cannot chroot: ", app.Root, err)
 	}
 
-	// TODO drop_capabilities
-
 	// Execute command
-	cmd := exec.Command("/bin/sh")
+	cmd := exec.Command(app.Args[0], app.Args[1:]...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	err = cmd.Start()
 	if err != nil {
-		log.Fatal("executing command: ", err)
+		return fmt.Errorf("executing command: ", err)
 	}
 	err = cmd.Wait()
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Info("OK")
 	return nil
 }

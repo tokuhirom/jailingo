@@ -5,6 +5,7 @@ import (
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	core "github.com/tokuhirom/jailingo/core"
+	"os"
 )
 
 const VERSION = "0.0.1"
@@ -23,6 +24,7 @@ func (i *stringArray) Set(value string) error {
 func main() {
 	root := flag.String("root", "", "chroot root")
 	levelString := flag.String("log.level", "INFO", "log level")
+	preset := flag.Bool("R", true, "Load preset")
 	var binds stringArray
 	flag.Var(&binds, "bind", "binds")
 	version := flag.Bool("version", false, "Show version and exit")
@@ -45,7 +47,44 @@ func main() {
 	}
 	log.SetLevel(level)
 
-	app := core.NewJailingApp(*root, binds)
+	if len(flag.Args()) == 0 {
+		fmt.Fprintf(os.Stderr, "Usage of %s: %s [OPTIONS...] -- /path/to/executable --arg1 arg2\n\n", os.Args[0], os.Args[0])
+		flag.PrintDefaults()
+		return
+	}
+
+	tmpdirs := []string{}
+	copyfiles := []string{}
+	robinds := []string{}
+	if *preset {
+		tmpdirs = []string{"/tmp", "/run/lock", "/var/tmp"}
+		copyfiles = []string{
+			"/etc/group",
+			"/etc/passwd",
+			"/etc/resolv.conf",
+			"/etc/hosts",
+		}
+		robinds = []string{
+			"/bin",
+			"/etc/alternatives",
+			"/etc/pki/tls/certs",
+			"/etc/pki/ca-trust",
+			"/etc/ssl/certs",
+			"/lib",
+			"/lib64",
+			"/sbin",
+			"/usr/bin",
+			"/usr/include",
+			"/usr/lib",
+			"/usr/lib64",
+			"/usr/libexec",
+			"/usr/sbin",
+			"/usr/share",
+			"/usr/src",
+		}
+	}
+
+	app := core.NewJailingApp(*root, tmpdirs, copyfiles, binds, robinds, flag.Args())
 	err = app.Main()
 	if err != nil {
 		log.Fatal("Cannot run jailingo: ", err)
