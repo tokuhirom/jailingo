@@ -1,6 +1,6 @@
 all: jailingo
 
-jailingo: jailingo.go core/app.go Makefile
+jailingo: jailingo.go core/unmount.go core/app.go child/child.go Makefile
 	go build
 	sudo setcap CAP_SYS_ADMIN,CAP_SYS_CHROOT,CAP_MKNOD+ep-i jailingo
 

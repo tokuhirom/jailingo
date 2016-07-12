@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	log "github.com/Sirupsen/logrus"
+	child "github.com/tokuhirom/jailingo/child"
 	core "github.com/tokuhirom/jailingo/core"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 	"os"
@@ -31,6 +32,10 @@ func main() {
 	run := app.Command("run", "Run command")
 	runCommand := run.Arg("command", "Command").Required().String()
 	runArgs := run.Arg("arguments", "Arguments").Strings()
+
+	childProcSubCommand := app.Command("child", "Internal use only")
+	childProcCommand := childProcSubCommand.Arg("command", "Command").String()
+	childProcArgs := childProcSubCommand.Arg("arguments", "Arguments").Strings()
 
 	app.Command("unmount", "unmount")
 
@@ -81,7 +86,7 @@ func main() {
 
 	switch command {
 	case "run":
-		app := core.NewJailingApp(*root, tmpdirs, copyfiles, *binds, robinds, *runCommand, *runArgs)
+		app := core.NewJailingApp(*root, tmpdirs, copyfiles, *binds, robinds, *runCommand, *runArgs, *levelString)
 		err = app.Main()
 		if err != nil {
 			log.Fatal("Cannot run jailingo: ", err)
@@ -89,6 +94,12 @@ func main() {
 	case "unmount":
 		app := core.NewUnmounter(*root, *binds, robinds)
 		err = app.UnmountAll()
+		if err != nil {
+			log.Fatal("Cannot unmount: ", err)
+		}
+	case "child":
+		child := child.NewChildProcfs(*root, *childProcCommand, *childProcArgs, *levelString)
+		err = child.Run()
 		if err != nil {
 			log.Fatal("Cannot unmount: ", err)
 		}

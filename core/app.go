@@ -30,6 +30,7 @@ type JailingApp struct {
 	RoBinds   []string
 	Command   string
 	Args      []string
+	logLevel  string
 }
 
 func Copy(dst, src string) error {
@@ -52,7 +53,7 @@ func Copy(dst, src string) error {
 	return cerr
 }
 
-func NewJailingApp(root string, tmpdirs []string, copyfiles []string, binds []string, robinds []string, command string, args []string) *JailingApp {
+func NewJailingApp(root string, tmpdirs []string, copyfiles []string, binds []string, robinds []string, command string, args []string, logLevel string) *JailingApp {
 	return &JailingApp{
 		root,
 		tmpdirs,
@@ -67,6 +68,7 @@ func NewJailingApp(root string, tmpdirs []string, copyfiles []string, binds []st
 		robinds,
 		command,
 		args,
+		logLevel,
 	}
 }
 
@@ -213,24 +215,6 @@ func (app *JailingApp) path(rel string) string {
 	return filepath.Join(app.Root, rel)
 }
 
-func (app *JailingApp) mountProcfs() error {
-	path := app.path("/proc")
-	err := os.MkdirAll(path, 0755)
-	if err != nil {
-		return err
-	}
-	if IsEmpty(path) {
-		log.Infof("Mounting %v", path)
-		err := syscall.Mount("proc", path, "proc", syscall.MS_MGC_VAL, "")
-		if err != nil {
-			return err
-		}
-	} else {
-		log.Infof("%v exists", path)
-	}
-	return nil
-}
-
 func (app *JailingApp) mountPoints() error {
 	for _, mount := range app.Binds {
 		err := app.mount(mount, false)
@@ -278,35 +262,24 @@ func (app *JailingApp) Main() error {
 		return err
 	}
 
-	err = app.mountProcfs()
-	if err != nil {
-		return err
-	}
-
 	err = app.mountPoints()
 	if err != nil {
 		return err
 	}
 
-	// Do chroot
-	err = syscall.Chroot(app.Root)
-	if err != nil {
-		return fmt.Errorf("Cannot chroot: ", app.Root, err)
-	}
-
-	// Execute command
-	cmd := exec.Command(app.Command, app.Args...)
+	// Invoke /proc/self/exe with 'child' subcommand.
+	// `jailingo child` subcommand mounts /proc. Then, start target process.
+	cmd := exec.Command("/proc/self/exe", append([]string{"child", "--log.level", app.logLevel, "--root", app.Root, app.Command}, app.Args...)...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	err = cmd.Start()
-	if err != nil {
-		return fmt.Errorf("executing command: ", err)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWNS | syscall.CLONE_NEWIPC,
 	}
-	err = cmd.Wait()
-	if err != nil {
-		log.Fatal(err)
+	if err := cmd.Run(); err != nil {
+		log.Fatal("ERROR: ", err)
+		os.Exit(1)
 	}
-	log.Info("OK")
+
 	return nil
 }
