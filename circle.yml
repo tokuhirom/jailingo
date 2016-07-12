@@ -1,5 +1,5 @@
 test:
   pre:
     - go build
-    - sudo /usr/sbin/setcap CAP_SYS_ADMIN,CAP_SYS_CHROOT,CAP_MKNOD+ep-i jailingo
+    - sudo /sbin/setcap CAP_SYS_ADMIN,CAP_SYS_CHROOT,CAP_MKNOD+ep-i jailingo
 
