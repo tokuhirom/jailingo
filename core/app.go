@@ -28,6 +28,7 @@ type JailingApp struct {
 	CopyFiles []string
 	Binds     []string
 	RoBinds   []string
+	Command   string
 	Args      []string
 }
 
@@ -51,7 +52,7 @@ func Copy(dst, src string) error {
 	return cerr
 }
 
-func NewJailingApp(root string, tmpdirs []string, copyfiles []string, binds []string, robinds []string, args []string) *JailingApp {
+func NewJailingApp(root string, tmpdirs []string, copyfiles []string, binds []string, robinds []string, command string, args []string) *JailingApp {
 	return &JailingApp{
 		root,
 		tmpdirs,
@@ -64,6 +65,7 @@ func NewJailingApp(root string, tmpdirs []string, copyfiles []string, binds []st
 		copyfiles,
 		binds,
 		robinds,
+		command,
 		args,
 	}
 }
@@ -245,53 +247,6 @@ func (app *JailingApp) mountPoints() error {
 	return nil
 }
 
-func (app *JailingApp) Unmount(mount string) error {
-	target := filepath.Join(app.Root, mount)
-	if IsEmpty(target) {
-		log.Infof("%s is empty", target)
-		return nil
-	}
-
-	log.Infof("Unmounting %s", target)
-	err := syscall.Unmount(target, syscall.MNT_DETACH)
-	if err != nil {
-		/*
-
-			EINVAL target is not a mount point.
-
-			EINVAL umount2() was called with MNT_EXPIRE and either MNT_DETACH or
-					MNT_FORCE.
-
-			EINVAL (since Linux 2.6.34)
-					umount2() was called with an invalid flag value in flags.
-
-		*/
-		return fmt.Errorf("Cannout unmount %v: %v", target, err)
-	}
-	return nil
-}
-
-func (app *JailingApp) UnmountAll() error {
-	err := app.Unmount("/dev")
-	if err != nil {
-		return err
-	}
-
-	for _, mount := range app.Binds {
-		err := app.Unmount(mount)
-		if err != nil {
-			return err
-		}
-	}
-	for _, mount := range app.RoBinds {
-		err := app.Unmount(mount)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (app *JailingApp) Main() error {
 	err := os.MkdirAll(app.Root, 0755)
 	if err != nil {
@@ -340,7 +295,7 @@ func (app *JailingApp) Main() error {
 	}
 
 	// Execute command
-	cmd := exec.Command(app.Args[0], app.Args[1:]...)
+	cmd := exec.Command(app.Command, app.Args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

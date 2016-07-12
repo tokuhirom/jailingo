@@ -1,10 +1,10 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	core "github.com/tokuhirom/jailingo/core"
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
 	"os"
 )
 
@@ -22,25 +22,21 @@ func (i *stringArray) Set(value string) error {
 }
 
 func main() {
-	root := flag.String("root", "", "chroot root")
-	levelString := flag.String("log.level", "INFO", "log level")
-	preset := flag.Bool("R", true, "Load preset")
-	var binds stringArray
-	flag.Var(&binds, "bind", "binds")
-	version := flag.Bool("version", false, "Show version and exit")
-	unmount := flag.Bool("unmount", false, "Do unmount and exit")
-	flag.Parse()
+	app := kingpin.New("jailingo", "A command-line chat application.")
+	levelString := app.Flag("log.level", "log level").Default("INFO").String()
+	root := app.Flag("root", "chroot root").Required().String()
+	binds := app.Flag("bind", "binds").Strings()
+	preset := app.Flag("preset", "Load preset").Short('R').Default("true").Bool()
 
-	if *root == "" {
-		log.Fatal("Missing --root argument")
-	}
-	if (*root)[0] != '/' {
-		log.Fatal("--root argument must be absolute")
-	}
-	if *version {
-		fmt.Printf("%v\n", VERSION)
-		return
-	}
+	run := app.Command("run", "Run command")
+	runCommand := run.Arg("command", "Command").Required().String()
+	runArgs := run.Arg("arguments", "Arguments").Strings()
+
+	app.Command("unmount", "unmount")
+
+	app.Command("version", "Show version and exit")
+
+	command := kingpin.MustParse(app.Parse(os.Args[1:]))
 
 	level, err := log.ParseLevel(*levelString)
 	if err != nil {
@@ -48,10 +44,8 @@ func main() {
 	}
 	log.SetLevel(level)
 
-	if len(flag.Args()) == 0 {
-		fmt.Fprintf(os.Stderr, "Usage of %s: %s [OPTIONS...] -- /path/to/executable --arg1 arg2\n\n", os.Args[0], os.Args[0])
-		flag.PrintDefaults()
-		return
+	if (*root)[0] != '/' {
+		log.Fatal("--root argument must be absolute")
 	}
 
 	tmpdirs := []string{}
@@ -85,16 +79,21 @@ func main() {
 		}
 	}
 
-	app := core.NewJailingApp(*root, tmpdirs, copyfiles, binds, robinds, flag.Args())
-	if *unmount {
-		err = app.UnmountAll()
-		if err != nil {
-			log.Fatal("Cannot unmount: ", err)
-		}
-	} else {
+	switch command {
+	case "run":
+		app := core.NewJailingApp(*root, tmpdirs, copyfiles, *binds, robinds, *runCommand, *runArgs)
 		err = app.Main()
 		if err != nil {
 			log.Fatal("Cannot run jailingo: ", err)
 		}
+	case "unmount":
+		app := core.NewUnmounter(*root, *binds, robinds)
+		err = app.UnmountAll()
+		if err != nil {
+			log.Fatal("Cannot unmount: ", err)
+		}
+	case "version":
+		fmt.Printf("%v\n", VERSION)
+		return
 	}
 }
