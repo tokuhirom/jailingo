@@ -307,7 +307,6 @@ func (app *JailingApp) Main() error {
 		return err
 	}
 
-	// TODO make /dev as devtmpfs. since some env provides root fs as 'nodev'
 	err = app.mountPoints()
 	if err != nil {
 		return err
@@ -321,6 +320,10 @@ func (app *JailingApp) Main() error {
 
 	// Execute command
 	cmd := exec.Command(app.Args[0], app.Args[1:]...)
+	// CLONE_NEWPID: http://man7.org/linux/man-pages/man7/pid_namespaces.7.html
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWNS,
+	}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
