@@ -213,20 +213,9 @@ func (app *JailingApp) mountPoints() error {
 		if err != nil {
 			return err
 		}
-
-		_, err = os.Open(mount)
-		if err != nil {
-			return err
-		}
 	}
 	for _, mount := range app.RoBinds {
 		err := app.mount(mount, true)
-		if err != nil {
-			return err
-		}
-
-		// Open directories to keep mounting.
-		_, err = os.Open(mount)
 		if err != nil {
 			return err
 		}
