@@ -105,10 +105,21 @@ func (app *JailingApp) mknod(path string, mode, major, minor int) error {
 }
 
 func (app *JailingApp) makeDevices() error {
-	err := os.MkdirAll(filepath.Join(app.Root, "/dev/"), 0755)
+	devpath := filepath.Join(app.Root, "/dev/")
+	err := os.MkdirAll(devpath, 0755)
 	if err != nil {
-		log.Fatal("mkdir /dev/ ", err)
+		log.Fatalf("mkdir %v: %v", devpath, err)
 	}
+
+	// Make /dev/ as tmpfs.
+	// In some case, root fs was mounted with 'nodev' option.
+	if IsEmpty(devpath) {
+		err = syscall.Mount("tmpfs", devpath, "tmpfs", syscall.MS_MGC_VAL, "")
+		if err != nil {
+			log.Fatalf("Cannot mount %v as tmpfs: %v", devpath, err)
+		}
+	}
+
 	for _, device := range app.Devices {
 		err = app.mknod(device.Path, device.Mode, device.Major, device.Minor)
 		if err != nil {
