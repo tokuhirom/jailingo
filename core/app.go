@@ -207,6 +207,28 @@ func (app *JailingApp) mount(point string, readonly bool) error {
 	return nil
 }
 
+func (app *JailingApp) path(rel string) string {
+	return filepath.Join(app.Root, rel)
+}
+
+func (app *JailingApp) mountProcfs() error {
+	path := app.path("/proc")
+	err := os.MkdirAll(path, 0755)
+	if err != nil {
+		return err
+	}
+	if IsEmpty(path) {
+		log.Infof("Mounting %v", path)
+		err := syscall.Mount("proc", path, "proc", syscall.MS_MGC_VAL, "")
+		if err != nil {
+			return err
+		}
+	} else {
+		log.Infof("%v exists", path)
+	}
+	return nil
+}
+
 func (app *JailingApp) mountPoints() error {
 	for _, mount := range app.Binds {
 		err := app.mount(mount, false)
@@ -250,6 +272,11 @@ func (app *JailingApp) Unmount(mount string) error {
 }
 
 func (app *JailingApp) UnmountAll() error {
+	err := app.Unmount("/dev")
+	if err != nil {
+		return err
+	}
+
 	for _, mount := range app.Binds {
 		err := app.Unmount(mount)
 		if err != nil {
@@ -296,6 +323,11 @@ func (app *JailingApp) Main() error {
 		return err
 	}
 
+	err = app.mountProcfs()
+	if err != nil {
+		return err
+	}
+
 	err = app.mountPoints()
 	if err != nil {
 		return err
@@ -309,10 +341,6 @@ func (app *JailingApp) Main() error {
 
 	// Execute command
 	cmd := exec.Command(app.Args[0], app.Args[1:]...)
-	// CLONE_NEWPID: http://man7.org/linux/man-pages/man7/pid_namespaces.7.html
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWNS,
-	}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
