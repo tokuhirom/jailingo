@@ -1,3 +1,5 @@
 test:
   pre:
-    - make
+    - go build
+    - sudo setcap CAP_SYS_ADMIN,CAP_SYS_CHROOT,CAP_MKNOD+ep-i jailingo
+
