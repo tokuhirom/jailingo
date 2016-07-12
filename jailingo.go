@@ -13,6 +13,7 @@ const VERSION = "0.0.1"
 
 func main() {
 	app := kingpin.New("jailingo", "A command-line chat application.")
+	app.Version(VERSION)
 	levelString := app.Flag("log.level", "log level").Default("INFO").String()
 	root := app.Flag("root", "chroot root").Required().String()
 	binds := app.Flag("bind", "binds").Strings()
@@ -27,8 +28,6 @@ func main() {
 	childProcArgs := childProcSubCommand.Arg("arguments", "Arguments").Strings()
 
 	app.Command("unmount", "unmount")
-
-	app.Command("version", "Show version and exit")
 
 	command := kingpin.MustParse(app.Parse(os.Args[1:]))
 
