@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	log "github.com/Sirupsen/logrus"
 	child "github.com/tokuhirom/jailingo/child"
 	core "github.com/tokuhirom/jailingo/core"
@@ -11,7 +10,7 @@ import (
 
 const VERSION = "0.0.1"
 
-func main() {
+func Run(args []string) {
 	app := kingpin.New("jailingo", "A command-line chat application.")
 	app.Version(VERSION)
 	levelString := app.Flag("log.level", "log level").Default("INFO").String()
@@ -29,7 +28,7 @@ func main() {
 
 	app.Command("unmount", "unmount")
 
-	command := kingpin.MustParse(app.Parse(os.Args[1:]))
+	command := kingpin.MustParse(app.Parse(args))
 
 	level, err := log.ParseLevel(*levelString)
 	if err != nil {
@@ -91,8 +90,9 @@ func main() {
 		if err != nil {
 			log.Fatal("Cannot unmount: ", err)
 		}
-	case "version":
-		fmt.Printf("%v\n", VERSION)
-		return
 	}
+}
+
+func main() {
+	Run(os.Args[1:])
 }
