@@ -269,7 +269,7 @@ func (app *JailingApp) Main() error {
 
 	// Invoke /proc/self/exe with 'child' subcommand.
 	// `jailingo child` subcommand mounts /proc. Then, start target process.
-	cmd := exec.Command("/proc/self/exe", append([]string{"child", "--log.level", app.logLevel, "--root", app.Root, app.Command}, app.Args...)...)
+	cmd := exec.Command("/proc/self/exe", append([]string{"child", "--log.level", app.logLevel, "--root", app.Root, "--", app.Command}, app.Args...)...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
