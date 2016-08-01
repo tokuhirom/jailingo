@@ -5,5 +5,5 @@ go:
   - tip
 install:
   - go get
-  - go build
+  - make
 script: go test ./...
