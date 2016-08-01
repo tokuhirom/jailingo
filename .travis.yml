@@ -3,6 +3,9 @@ language: go
 go:
   - 1.3
   - tip
+  
+sudo: true
+
 install:
   - go get
   - make
