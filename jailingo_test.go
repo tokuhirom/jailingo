@@ -29,6 +29,24 @@ func TestVersion(t *testing.T) {
 	}
 }
 
+func TestRun2(t *testing.T) {
+	tmpdir, err := ioutil.TempDir("", "test")
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(tmpdir)
+
+	r, w, _ := os.Pipe()
+	cmd := exec.Command("./jailingo", "run", "--root", tmpdir, "/bin/ls")
+
+	err = cmd.Run()
+
+	if err != nil {
+		t.Log(buf.String())
+		t.Error(err)
+	}
+}
+
 func TestRun(t *testing.T) {
 	tmpdir, err := ioutil.TempDir("", "test")
 	if err != nil {
