@@ -41,13 +41,15 @@ func TestRun(t *testing.T) {
 	cmd.Stdout = w
 
 	err = cmd.Run()
-	if err != nil {
-		t.Error(err)
-	}
 
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
+
+	if err != nil {
+		t.Log(buf.String())
+		t.Error(err)
+	}
 
 	if !strings.Contains(buf.String(), "bin") {
 		t.Error("Failure: " + buf.String())
