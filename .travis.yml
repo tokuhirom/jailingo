@@ -10,4 +10,6 @@ install:
   - sudo apt-get install libcap2-bin
   - go get
   - make
+  - /bin/ls
+  - ./jailingo run --root /tmp/jail /bin/ls
 script: go test -v -race ./...
