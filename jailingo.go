@@ -6,9 +6,20 @@ import (
 	core "github.com/tokuhirom/jailingo/core"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 	"os"
+	"path/filepath"
 )
 
 const VERSION = "0.0.1"
+
+func filter(s []string, fn func(string) bool) []string {
+	var p []string // == nil
+	for _, v := range s {
+		if fn(v) {
+			p = append(p, v)
+		}
+	}
+	return p
+}
 
 func Run(args []string) {
 	app := kingpin.New("jailingo", "A command-line chat application.")
@@ -51,7 +62,7 @@ func Run(args []string) {
 			"/etc/resolv.conf",
 			"/etc/hosts",
 		}
-		robinds = []string{
+		robinds = filter([]string{
 			"/bin",
 			"/etc/alternatives",
 			"/etc/pki/tls/certs",
@@ -68,7 +79,15 @@ func Run(args []string) {
 			"/usr/sbin",
 			"/usr/share",
 			"/usr/src",
-		}
+			"/xxy",
+		}, func(path string) bool {
+			if _, err := os.Stat(filepath.Join(path)); os.IsNotExist(err) {
+				log.Debugf("Missing %v. Skip.", path)
+				return false
+			}
+			return true
+		})
+		log.Infof("%v", robinds)
 	}
 
 	switch command {
